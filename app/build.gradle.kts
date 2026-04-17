@@ -19,6 +19,7 @@ android {
         externalNativeBuild {
             cmake {
                 cppFlags += "-std=c++17"
+                arguments += "-DANDROID_STL=c++_shared"
             }
         }
     }
@@ -42,7 +43,7 @@ android {
     buildFeatures {
         compose = true
         prefab = true
-        /*
+        /* https://developer.android.com/games/sdk/oboe/update-build-settings
         prefab = true tells the Android build system to use Prefab, which is Google's standard way of consuming native (C/C++) libraries distributed through Maven/Gradle.
         Without it, Gradle downloads the Oboe .aar but the CMake build wouldn't know how to find and link the C++ headers and .so files inside it.
         With prefab = true, the Oboe package automatically exposes itself so your CMakeLists.txt can do find_package(oboe REQUIRED CONFIG).
