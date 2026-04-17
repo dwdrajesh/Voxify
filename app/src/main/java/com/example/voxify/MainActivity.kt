@@ -9,11 +9,13 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -112,6 +114,9 @@ fun VoxifyScreen(audioEngine: AudioEngine) {
     Column (
         modifier = Modifier
             .fillMaxSize()
+            .padding(16.dp)
+            .background(Color(0xFFC5CAE9), RoundedCornerShape(16.dp))
+            .border(4.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
             .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -137,13 +142,8 @@ fun VoxifyScreen(audioEngine: AudioEngine) {
 
         Spacer(modifier = Modifier.height(48.dp))
 
-        // Level meter (static placeholder for now)
-        Box (
-            modifier = Modifier.fillMaxWidth()
-                .height(24.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant)
-        )
+        // Level meter (based on level, only active when recordig or playing)
+        LevelMeter(level = level, isActive = state != RecorderState.IDLE)
 
         Spacer(modifier = Modifier.height(48.dp))
 
@@ -159,7 +159,6 @@ fun VoxifyScreen(audioEngine: AudioEngine) {
                 shape = CircleShape,
                 modifier = Modifier
                     .size(80.dp),
-//                    .clip(CircleShape),
                 contentPadding = PaddingValues(0.dp)
             ) {
                 Box (
@@ -188,7 +187,7 @@ fun VoxifyScreen(audioEngine: AudioEngine) {
                     audioEngine.startRecording()
                     state = RecorderState.RECORDING
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935)),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF66BB6A)),
                 shape = CircleShape,
                 modifier = Modifier
                     .size(80.dp),
@@ -239,6 +238,39 @@ fun VoxifyScreen(audioEngine: AudioEngine) {
             onValueChange = { gain = it },
             valueRange = 0.1f..3.0f,
             modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+@Composable
+fun LevelMeter(level: Float, isActive: Boolean) {
+    val displayLevel = if (isActive) (level * 5f).coerceIn(0f, 1f) else 0f
+
+    val animatedLevel by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = displayLevel,
+        animationSpec = androidx.compose.animation.core.tween(durationMillis = 50),
+        label = "level"
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(24.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .fillMaxWidth(animatedLevel)
+                .clip(RoundedCornerShape(12.dp))
+                .background(
+                    when {
+                        animatedLevel > 0.8f -> Color(0xFFE53935)
+                        animatedLevel > 0.5f -> Color(0xFFFFA726)
+                        else -> Color(0xFF66BB6A)
+                    }
+                )
         )
     }
 }
