@@ -7,55 +7,55 @@ static AudioEngine *engine = nullptr;
 extern "C" {
 
 JNIEXPORT void JNICALL
-Java_com_example_voxify_AudioEngine_nativeCreate(JNIEnv *, jobject) {
+Java_com_example_voxify_engine_AudioEngine_nativeCreate(JNIEnv *, jobject) {
 	if (engine == nullptr) {
 		engine = new AudioEngine();
 	}
 }
 
 JNIEXPORT void JNICALL
-Java_com_example_voxify_AudioEngine_nativeDestroy(JNIEnv *, jobject) {
+Java_com_example_voxify_engine_AudioEngine_nativeDestroy(JNIEnv *, jobject) {
 	delete engine;
 	engine = nullptr;
 }
 
 JNIEXPORT void JNICALL
-Java_com_example_voxify_AudioEngine_nativeStartRecording(JNIEnv *, jobject) {
+Java_com_example_voxify_engine_AudioEngine_nativeStartRecording(JNIEnv *, jobject) {
 	if (engine) engine->startRecording();
 }
 
 JNIEXPORT void JNICALL
-Java_com_example_voxify_AudioEngine_nativeStopRecording(JNIEnv *, jobject) {
+Java_com_example_voxify_engine_AudioEngine_nativeStopRecording(JNIEnv *, jobject) {
 	if (engine) engine->stopRecording();
 }
 
 JNIEXPORT void JNICALL
-Java_com_example_voxify_AudioEngine_nativeStartPlayback(JNIEnv *, jobject) {
+Java_com_example_voxify_engine_AudioEngine_nativeStartPlayback(JNIEnv *, jobject) {
 	if (engine) engine->startPlayback();
 }
 
 JNIEXPORT void JNICALL
-Java_com_example_voxify_AudioEngine_nativeStopPlayback(JNIEnv *, jobject) {
+Java_com_example_voxify_engine_AudioEngine_nativeStopPlayback(JNIEnv *, jobject) {
 	if (engine) engine->stopPlayback();
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_example_voxify_AudioEngine_nativeIsRecording(JNIEnv *, jobject) {
+Java_com_example_voxify_engine_AudioEngine_nativeIsRecording(JNIEnv *, jobject) {
 	return engine ? engine->isRecording() : false;
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_example_voxify_AudioEngine_nativeIsPlaying(JNIEnv *, jobject) {
+Java_com_example_voxify_engine_AudioEngine_nativeIsPlaying(JNIEnv *, jobject) {
 	return engine ? engine->isPlaying() : false;
 }
 
 JNIEXPORT jfloat JNICALL
-Java_com_example_voxify_AudioEngine_nativeGetLevel(JNIEnv *, jobject) {
+Java_com_example_voxify_engine_AudioEngine_nativeGetLevel(JNIEnv *, jobject) {
 	return engine ? engine->getLevel() : 0.0f;
 }
 
 JNIEXPORT void JNICALL
-Java_com_example_voxify_AudioEngine_nativeSetGain(JNIEnv *, jobject, jfloat gain) {
+Java_com_example_voxify_engine_AudioEngine_nativeSetGain(JNIEnv *, jobject, jfloat gain) {
 	if (engine) engine->setGain(gain);
 }
 

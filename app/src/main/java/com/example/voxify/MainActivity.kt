@@ -1,16 +1,19 @@
 package com.example.voxify
 
+import android.content.pm.PackageManager
+import android.Manifest
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -25,6 +28,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -34,44 +38,76 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.modifier.modifierLocalMapOf
-import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import com.example.voxify.ui.theme.VoxifyTheme
+
+
+import com.example.voxify.engine.AudioEngine
+import kotlinx.coroutines.delay
 
 enum class RecorderState { IDLE, RECORDING, PLAYING }
 
 class MainActivity : ComponentActivity() {
+    private lateinit var audioEngine: AudioEngine
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        audioEngine = AudioEngine()
+
         enableEdgeToEdge()
         setContent {
             VoxifyTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) {
-                    VoxifyScreen()
+                    VoxifyScreen(audioEngine)
                 }
             }
         }
     }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        audioEngine.destroy()
+    }
 }
 
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
 
 @Composable
-fun VoxifyScreen() {
-
+fun VoxifyScreen(audioEngine: AudioEngine) {
+    val context = LocalContext.current
     var state by remember { mutableStateOf(RecorderState.IDLE) }
+    var hasPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
+                    == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
     var hasRecording by remember { mutableStateOf(false) }
+    var level by remember { mutableFloatStateOf(0f) }
+
     var gain by remember { mutableFloatStateOf(1f) }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) {
+        granted -> hasPermission = granted
+    }
+
+    // Poll level while recording or playing
+    LaunchedEffect(state) {
+        while (state == RecorderState.RECORDING || state == RecorderState.PLAYING) {
+            level = audioEngine.getLevel()
+            if (state == RecorderState.PLAYING && !audioEngine.isPlaying()) {
+                state = RecorderState.IDLE
+            }
+            delay(50)
+        }
+        level = 0f
+    }
 
     Column (
         modifier = Modifier
@@ -82,7 +118,7 @@ fun VoxifyScreen() {
     ) {
         // Title
         Text(
-            text = "VoicePlay",
+            text = "Voxify",
             fontSize = 28.sp,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary
@@ -115,6 +151,7 @@ fun VoxifyScreen() {
         if (state == RecorderState.RECORDING) {
             Button(
                 onClick = {
+                    audioEngine.stopRecording()
                     state = RecorderState.IDLE
                     hasRecording = true
                 },
@@ -138,8 +175,18 @@ fun VoxifyScreen() {
         } else {
             Button(
                 onClick = {
+
+                    // First tap on record requests permission
+                    if (!hasPermission) {
+                        permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                        return@Button
+                    }
+
+                    if (state == RecorderState.PLAYING) {
+                        audioEngine.stopPlayback()
+                    }
+                    audioEngine.startRecording()
                     state = RecorderState.RECORDING
-                    hasRecording = true
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935)),
                 shape = CircleShape,
@@ -166,9 +213,12 @@ fun VoxifyScreen() {
             onClick = {
                 if (state == RecorderState.PLAYING) {
                     // TODO: stop playback via Oboe
+                    audioEngine.stopPlayback()
                     state = RecorderState.IDLE
                 } else {
                     // TODO: start playback via Oboe
+                    audioEngine.setGain(gain)
+                    audioEngine.startPlayback()
                     state = RecorderState.PLAYING
                 }
             },
@@ -193,10 +243,3 @@ fun VoxifyScreen() {
     }
 }
 
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    VoxifyTheme {
-        Greeting("Android")
-    }
-}
