@@ -10,7 +10,7 @@ add_library( # Specifies the name of the library. (will be libvoxify.so)
 
         # Provides a relative path to source file(s).
         jni-bridge.cpp
-#        AudioEngine.cpp
+        AudioEngine.cpp
 )
 
 # Links your native library against one or more other native libraries.
