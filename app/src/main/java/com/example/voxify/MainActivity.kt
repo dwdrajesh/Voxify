@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package com.example.voxify
 
 import android.content.pm.PackageManager
@@ -14,6 +16,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,7 +28,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
@@ -98,6 +107,13 @@ fun VoxifyScreen(audioEngine: AudioEngine) {
     ) {
         granted -> hasPermission = granted
     }
+
+    // language selector for output
+    var selectedLanguage by remember { mutableStateOf("English") }
+    var dropdownExpanded by remember { mutableStateOf(false) }
+    var transcribedText by remember { mutableStateOf("") }
+    val languageOptions = listOf("English", "Native")
+
 
     // Poll level while recording or playing
     LaunchedEffect(state) {
@@ -207,26 +223,82 @@ fun VoxifyScreen(audioEngine: AudioEngine) {
             Text("Record", fontSize = 14.sp)
         }
 
-        // Play Button
-        Button(
-            onClick = {
-                if (state == RecorderState.PLAYING) {
-                    // TODO: stop playback via Oboe
-                    audioEngine.stopPlayback()
-                    state = RecorderState.IDLE
-                } else {
-                    // TODO: start playback via Oboe
-                    audioEngine.setGain(gain)
-                    audioEngine.startPlayback()
-                    state = RecorderState.PLAYING
-                }
-            },
-            enabled = hasRecording && state != RecorderState.RECORDING,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp)
+        // Play Button + Language dropdown
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(if (state == RecorderState.PLAYING) "Stop Playback" else "Play")
+            // Language dropdown
+            ExposedDropdownMenuBox(
+                expanded = dropdownExpanded,
+                onExpandedChange = { dropdownExpanded = it },
+                modifier = Modifier.weight(1f)
+            ) {
+                OutlinedTextField(
+                    value = selectedLanguage,
+                    onValueChange = {},
+                    readOnly = true,
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownExpanded) },
+                    modifier = Modifier.menuAnchor(),
+                    textStyle = LocalTextStyle.current.copy(fontSize = 14.sp)
+                )
+                ExposedDropdownMenu(
+                    expanded = dropdownExpanded,
+                    onDismissRequest = { dropdownExpanded = false }
+                ) {
+                    languageOptions.forEach { language ->
+                        DropdownMenuItem(
+                            text = { Text(language) },
+                            onClick = {
+                                selectedLanguage = language
+                                dropdownExpanded = false
+                            }
+                        )
+                    }
+                }
+            }
+
+            // Play button
+            Button(
+                onClick = {
+                    if (state == RecorderState.PLAYING) {
+                        audioEngine.stopPlayback()
+                        state = RecorderState.IDLE
+                    } else {
+                        // TODO: if English, transcribe+translate first, then TTS
+                        // TODO: if Native, play back original recording
+                        audioEngine.setGain(gain)
+                        audioEngine.startPlayback()
+                        state = RecorderState.PLAYING
+                    }
+                },
+                enabled = hasRecording && state != RecorderState.RECORDING,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(48.dp)
+            ) {
+                Text(if (state == RecorderState.PLAYING) "Stop" else "Play")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Transcribed/Translated text display
+        if (transcribedText.isNotEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color.White.copy(alpha = 0.7f))
+                    .padding(12.dp)
+            ) {
+                Text(
+                    text = transcribedText,
+                    fontSize = 14.sp,
+                    color = Color.DarkGray
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(32.dp))
