@@ -5,6 +5,7 @@ package com.example.voxify
 import android.content.pm.PackageManager
 import android.Manifest
 import android.os.Bundle
+import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -55,10 +56,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.example.voxify.ui.theme.VoxifyTheme
-
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import java.io.File
+import java.io.FileOutputStream
 
 import com.example.voxify.engine.AudioEngine
 import kotlinx.coroutines.delay
+import java.util.Locale
 
 enum class RecorderState { IDLE, RECORDING, PLAYING }
 
@@ -108,12 +115,48 @@ fun VoxifyScreen(audioEngine: AudioEngine) {
         granted -> hasPermission = granted
     }
 
+
+    /* Load Whisper model from assets on first launch:
+     copies the model from assets/ to internal storage (only once), then loads it into Whisper.
+      Runs on the IO thread so it doesn't block the UI.
+     */
+
+    var modelLoaded by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) {
+            val modelFile = File(context.filesDir, "ggml-tiny.bin") // ggml-base.bin, ggml-tiny.bin, ggml-tiny-q5_1.bin
+            if (!modelFile.exists()) {
+                context.assets.open("ggml-tiny.bin").use { input ->
+                    FileOutputStream(modelFile).use { output ->
+                        input.copyTo(output)
+                    }
+                }
+            }
+            modelLoaded = audioEngine.loadModel(modelFile.absolutePath)
+        }
+    }
+
     // language selector for output
     var selectedLanguage by remember { mutableStateOf("English") }
     var dropdownExpanded by remember { mutableStateOf(false) }
     var transcribedText by remember { mutableStateOf("") }
     val languageOptions = listOf("English", "Native")
 
+
+
+    // coroutine scope + state of transcribing
+    val scope = rememberCoroutineScope()
+    var isTranscribing by remember { mutableStateOf(false) }
+
+
+    var tts by remember { mutableStateOf<TextToSpeech?>(null) }
+    LaunchedEffect(Unit) {
+        tts = TextToSpeech(context) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                tts?.language = Locale.US
+            }
+        }
+    }
 
     // Poll level while recording or playing
     LaunchedEffect(state) {
@@ -144,6 +187,15 @@ fun VoxifyScreen(audioEngine: AudioEngine) {
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary
         )
+
+        // Transcribing status
+        if (!modelLoaded) {
+            Text(
+                text = "Loading model...",
+                fontSize = 12.sp,
+                color = Color(0xFFFFA726)
+            )
+        }
 
         // Recording playing status
         Text (
@@ -185,7 +237,7 @@ fun VoxifyScreen(audioEngine: AudioEngine) {
             }
             Spacer(modifier = Modifier.height(8.dp))
 
-            Text("Stop", fontSize = 14.sp)
+            Text("Stop", fontSize = 14.sp, color = Color.Black)
 
         } else {
             Button(
@@ -220,7 +272,7 @@ fun VoxifyScreen(audioEngine: AudioEngine) {
             }
             Spacer(modifier = Modifier.height(8.dp))
 
-            Text("Record", fontSize = 14.sp)
+            Text("Record", fontSize = 14.sp, color = Color.Black)
         }
 
         // Play Button + Language dropdown
@@ -265,12 +317,24 @@ fun VoxifyScreen(audioEngine: AudioEngine) {
                     if (state == RecorderState.PLAYING) {
                         audioEngine.stopPlayback()
                         state = RecorderState.IDLE
-                    } else {
-                        // TODO: if English, transcribe+translate first, then TTS
-                        // TODO: if Native, play back original recording
+                    } else if (selectedLanguage == "Native") {
+                        // if Native, play back original recording
                         audioEngine.setGain(gain)
                         audioEngine.startPlayback()
                         state = RecorderState.PLAYING
+                    } else {
+                        // English: transcribe+translate, show text, speak via TTS
+                        scope.launch {
+                            isTranscribing = true
+                            val text = withContext(Dispatchers.Default) {
+                                audioEngine.transcribe(true)
+                            }
+                            transcribedText = text
+                            isTranscribing = false
+                            state = RecorderState.PLAYING
+                            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "voxify_tts")
+                            state = RecorderState.IDLE
+                        }
                     }
                 },
                 enabled = hasRecording && state != RecorderState.RECORDING,
@@ -294,9 +358,14 @@ fun VoxifyScreen(audioEngine: AudioEngine) {
                     .padding(12.dp)
             ) {
                 Text(
-                    text = transcribedText,
+                    text = when {
+                        isTranscribing -> "Translating..."
+                        state == RecorderState.RECORDING -> "Recording..."
+                        state == RecorderState.PLAYING -> "Playing..."
+                        else -> if (hasRecording) "Ready to play or record" else "Tap Record to start"
+                    },
                     fontSize = 14.sp,
-                    color = Color.DarkGray
+                    color = Color.Black
                 )
             }
         }
@@ -304,7 +373,7 @@ fun VoxifyScreen(audioEngine: AudioEngine) {
         Spacer(modifier = Modifier.height(32.dp))
 
         // Gain slider
-        Text("Gain: ${"%.1f".format(gain)}x", fontSize = 14.sp)
+        Text("Gain: ${"%.1f".format(gain)}x", fontSize = 14.sp, color = Color.Black)
         Slider(
             value = gain,
             onValueChange = { gain = it },

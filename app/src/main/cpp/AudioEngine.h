@@ -50,6 +50,7 @@ private:
       std::shared_ptr<oboe::AudioStream> mPlaybackStream;
 
 
+      std::mutex mWhisperMutex;
       std::vector<float> mRecordedSamples;
       std::mutex mBufferMutex;
       std::atomic<bool> mIsRecording{false};

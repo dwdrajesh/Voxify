@@ -69,6 +69,7 @@ Java_com_example_voxify_engine_AudioEngine_nativeLoadModel(JNIEnv *env, jobject,
 
 JNIEXPORT jstring JNICALL
 Java_com_example_voxify_engine_AudioEngine_nativeTranscribe(JNIEnv *env, jobject, jboolean translate) {
+	bool translateBoolean = (translate == 1) ? true : false;
 	std::string text = engine ? engine->transcribe(translate) : "[Engine not initialized]";
 	return env->NewStringUTF(text.c_str());
 }

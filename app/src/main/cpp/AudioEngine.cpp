@@ -36,6 +36,11 @@ void AudioEngine::openRecordingStream() {
     oboe::Result result = builder.openStream(mRecordingStream);
     if (result != oboe::Result::OK) {
     LOGE("Failed to open recording stream: %s", oboe::convertToText(result));
+    } else {
+    LOGI("Recording stream opened: sampleRate=%d, channelCount=%d, format=%d",
+        mRecordingStream->getSampleRate(),
+        mRecordingStream->getChannelCount(),
+        (int)mRecordingStream->getFormat());
     }
 }
 
@@ -197,6 +202,10 @@ bool AudioEngine::loadModel(const char *modelPath) {
 }
 
 std::string AudioEngine::transcribe(bool translate) {
+    // stop both first
+    stopRecording();
+    stopPlayback();
+
     if (!mWhisperContext) {
         LOGE("Whisper model not loaded");
         return "[Error: model not loaded]";
@@ -212,28 +221,54 @@ std::string AudioEngine::transcribe(bool translate) {
         return "[No audio recorded]";
     }
 
-    LOGI("Transcribing %zu samples...", samples.size());
+    // Normalize samples
+    float maxVal = 0.0f;
+    for (size_t i = 0; i < samples.size(); i++) {
+        float absVal = std::fabs(samples[i]);
+        if (absVal > maxVal) maxVal = absVal;
+    }
+
+    LOGI("Audio max value before normalization: %f", maxVal);
+//    if (maxVal > 0.0f) {
+//        for (size_t i = 0; i < samples.size(); i++) {
+//            samples[i] /= maxVal;
+//        }
+//    }
+
+    LOGI("Transcribing %zu samples (%.1f seconds), translate: %d...",
+        samples.size(), (float)samples.size() / kSampleRate, translate);
 
     whisper_full_params params = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
-    params.print_progress   = false;
-    params.print_timestamps = false;
+    params.print_progress   = true;
+    params.print_timestamps = true;
+    params.print_realtime   = true;
+    params.print_special    = false; // remove '_EOT_'
     params.translate        = translate;
-    params.language         = "auto";
+    params.language         = "auto"; // "en";
     params.n_threads        = 4;
-
-    int result = whisper_full(mWhisperContext, params, samples.data(), (int)samples.size());
-
-    if (result != 0) {
-        LOGE("Whisper transcription failed: %d", result);
-        return "[Transcription failed]";
-    }
+    params.single_segment   = true;
+    params.no_timestamps    = true;
 
     std::string text;
-    int nSegments = whisper_full_n_segments(mWhisperContext);
-    for (int i = 0; i < nSegments; i++) {
-        text += whisper_full_get_segment_text(mWhisperContext, i);
-    }
+    {
+        std::lock_guard<std::mutex> lock(mWhisperMutex);
+        int result = whisper_full(mWhisperContext, params, samples.data(), (int)samples.size());
+        LOGI("whisper_full returned: %d", result);
+        if (result != 0) {
+            LOGE("Whisper transcription failed: %d", result);
+            return "[Transcription failed]";
+        }
 
+        int nSegments = whisper_full_n_segments(mWhisperContext);
+        LOGI("Number of segments: %d", nSegments);
+        for (int i = 0; i < nSegments; i++) {
+            const char *segText = whisper_full_get_segment_text(mWhisperContext, i);
+            LOGI("Segment %d: '%s' (len=%d)", i, segText ? segText : "NULL", segText ? (int)strlen(segText) : -1);
+            if (segText) {
+                text += segText;
+            }
+        }
+    }
     LOGI("Transcription result: %s", text.c_str());
     return text;
 }
