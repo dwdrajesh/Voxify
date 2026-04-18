@@ -1,0 +1,17 @@
+# Voxify
+
+An Android Compose based voice recorder and real-time translator for Android, built with native audio processing.
+
+Record speech in any language, then play it back in English (or the original language).
+Voxify captures audio, transcribes and translates it using on-device ML, and speaks the translation aloud offline.
+
+# Flow:
+- Audio capture by Mic -> Oboe (16khz PCM) Flows via JNI
+- Whisper API (text to translation)
+- Android TTS output
+
+- Credits:
+Oboe: https://github.com/google/oboe
+Whisper: https://github.com/ggerganov/whisper.cpp (ggml-tiny.bin used for offline)
+
+
