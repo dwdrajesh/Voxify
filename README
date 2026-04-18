@@ -15,6 +15,9 @@ Oboe: https://github.com/google/oboe
 Whisper: https://github.com/ggerganov/whisper.cpp (ggml-tiny.bin used for offline)
 
 - Screenshots:
+<img src="./mainScreen.jpg">
+<img src="./recordScreen.jpg">
+<img src="./playScreen.jpg">
 ![/mainScreen.png]
 ![/recordScreen.png]
 ![/playScreen.png]
