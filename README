@@ -14,7 +14,7 @@ Voxify captures audio, transcribes and translates it using on-device ML, and spe
 Oboe: https://github.com/google/oboe
 Whisper: https://github.com/ggerganov/whisper.cpp (ggml-tiny.bin used for offline)
 
-- Screenshots:
+
 ![Alt text](https://github.com/dwdrajesh/Voxify/blob/main/mainScreen.png) 
 ![Alt text](https://github.com/dwdrajesh/Voxify/blob/main/recordScreen.png) 
 ![Alt text](https://github.com/dwdrajesh/Voxify/blob/main/playScreen.png) 
