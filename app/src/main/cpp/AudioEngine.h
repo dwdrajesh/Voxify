@@ -1,7 +1,12 @@
+
+#pragma once
+
 #include <oboe/Oboe.h>
 #include <vector>
 #include <mutex>
 #include <atomic>
+#include <whisper.h>
+#include <string>
 
 /*
  * AudioStreamDataCallback — Oboe's callback interface. Oboe calls onAudioReady() on a high-priority audio thread whenever it needs/has audio data
@@ -24,6 +29,11 @@ public:
     bool isPlaying() const { return mIsPlaying.load(); }
     float getLevel() const { return mCurrentLevel.load(); }
     void setGain(float gain) { mGain.store(gain); }
+
+    // Whisper
+
+    bool loadModel(const char *modelPath);
+    std::string transcribe(bool translate);
 
     oboe::DataCallbackResult onAudioReady(
             oboe::AudioStream *stream,
@@ -49,6 +59,9 @@ private:
 
       int64_t mPlaybackPosition = 0;
 
-      static constexpr int kSampleRate = 48000;
+      // Whisper
+      struct whisper_context *mWhisperContext = nullptr;
+
+      static constexpr int kSampleRate = 16000; // whisper needs 16000
       static constexpr int kChannelCount = 1;
 };

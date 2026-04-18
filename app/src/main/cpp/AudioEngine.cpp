@@ -15,6 +15,11 @@ AudioEngine::AudioEngine() {
 AudioEngine::~AudioEngine() {
     stopRecording();
     stopPlayback();
+
+    if (mWhisperContext) {
+        whisper_free(mWhisperContext);
+        mWhisperContext = nullptr;
+    }
 }
 
 
@@ -171,4 +176,64 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(
     }
 
     return oboe::DataCallbackResult::Continue;
+}
+
+bool AudioEngine::loadModel(const char *modelPath) {
+    if (mWhisperContext) {
+        whisper_free(mWhisperContext);
+        mWhisperContext = nullptr;
+    }
+
+    struct whisper_context_params cparams = whisper_context_default_params();
+    mWhisperContext = whisper_init_from_file_with_params(modelPath, cparams);
+
+    if (mWhisperContext) {
+        LOGI("Whisper model loaded: %s", modelPath);
+        return true;
+    } else {
+        LOGE("Failed to load Whisper model: %s", modelPath);
+        return false;
+    }
+}
+
+std::string AudioEngine::transcribe(bool translate) {
+    if (!mWhisperContext) {
+        LOGE("Whisper model not loaded");
+        return "[Error: model not loaded]";
+    }
+
+    std::vector<float> samples;
+    {
+        std::lock_guard<std::mutex> lock(mBufferMutex);
+        samples = mRecordedSamples;
+    }
+
+    if (samples.empty()) {
+        return "[No audio recorded]";
+    }
+
+    LOGI("Transcribing %zu samples...", samples.size());
+
+    whisper_full_params params = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
+    params.print_progress   = false;
+    params.print_timestamps = false;
+    params.translate        = translate;
+    params.language         = "auto";
+    params.n_threads        = 4;
+
+    int result = whisper_full(mWhisperContext, params, samples.data(), (int)samples.size());
+
+    if (result != 0) {
+        LOGE("Whisper transcription failed: %d", result);
+        return "[Transcription failed]";
+    }
+
+    std::string text;
+    int nSegments = whisper_full_n_segments(mWhisperContext);
+    for (int i = 0; i < nSegments; i++) {
+        text += whisper_full_get_segment_text(mWhisperContext, i);
+    }
+
+    LOGI("Transcription result: %s", text.c_str());
+    return text;
 }
