@@ -15,6 +15,10 @@ class AudioEngine {
     fun getLevel(): Float = nativeGetLevel()
     fun setGain(gain: Float) = nativeSetGain(gain)
 
+
+    fun loadModel(path: String) = nativeLoadModel(path)
+    fun transcribe(translate: Boolean) = nativeTranscribe(translate)
+
     fun destroy() = nativeDestroy()
 
     private external fun nativeCreate()
@@ -27,4 +31,8 @@ class AudioEngine {
     private external fun nativeIsPlaying(): Boolean
     private external fun nativeGetLevel(): Float
     private external fun nativeSetGain(gain: Float)
+
+    // whisper link
+    private external fun nativeLoadModel(path: String)
+    private external fun nativeTranscribe(translate: Boolean)
 }

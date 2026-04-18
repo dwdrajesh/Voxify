@@ -59,4 +59,18 @@ Java_com_example_voxify_engine_AudioEngine_nativeSetGain(JNIEnv *, jobject, jflo
 	if (engine) engine->setGain(gain);
 }
 
+JNIEXPORT jboolean JNICALL
+Java_com_example_voxify_engine_AudioEngine_nativeLoadModel(JNIEnv *env, jobject, jstring modelPath) {
+	const char *path = env->GetStringUTFChars(modelPath, nullptr);
+	bool result = engine ? engine->loadModel(path) : false;
+	env->ReleaseStringUTFChars(modelPath, path);
+	return result;
+}
+
+JNIEXPORT jstring JNICALL
+Java_com_example_voxify_engine_AudioEngine_nativeTranscribe(JNIEnv *env, jobject, jboolean translate) {
+	std::string text = engine ? engine->transcribe(translate) : "[Engine not initialized]";
+	return env->NewStringUTF(text.c_str());
+}
+
 } // extern "C"
